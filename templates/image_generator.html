@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Image Generator - Gen AI Platform{% endblock %}
+
+{% block content %}
+<div class="generator-container">
+    <div class="generator-header">
+        <h1><i class="fas fa-image"></i> AI Image Generator</h1>
+        <p>Create stunning images from text descriptions using Google's Imagen 4.0</p>
+    </div>
+
+    <div class="generator-main">
+        <div class="generator-form">
+            <form id="image-form">
+                <div class="form-group">
+                    <label for="prompt">Image Description</label>
+                    <textarea 
+                        id="prompt" 
+                        name="prompt" 
+                        rows="5" 
+                        placeholder="Describe the image you want to create... Be specific and detailed for best results."
+                        required
+                    ></textarea>
+                    <small class="form-hint">Example: "A serene mountain landscape at sunset with a crystal-clear lake reflecting golden clouds"</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="num-images">Number of Images</label>
+                    <input 
+                        type="range" 
+                        id="num-images" 
+                        name="num_images" 
+                        min="1" 
+                        max="4" 
+                        value="1"
+                    >
+                    <span class="range-value" id="num-images-value">1</span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-large" id="generate-btn">
+                        <i class="fas fa-magic"></i> Generate Images
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="clear-btn">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="generator-output">
+            <div class="output-header">
+                <h3>Generated Images</h3>
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Generating your images... This may take a moment.</p>
+                </div>
+            </div>
+
+            <div id="output-area" class="output-area">
+                <div class="placeholder">
+                    <i class="fas fa-image"></i>
+                    <p>Your generated images will appear here</p>
+                </div>
+            </div>
+
+            <div id="error-message" class="error-message hidden"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const imageForm = document.getElementById('image-form');
+const generateBtn = document.getElementById('generate-btn');
+const clearBtn = document.getElementById('clear-btn');
+const numImagesSlider = document.getElementById('num-images');
+const numImagesValue = document.getElementById('num-images-value');
+const outputArea = document.getElementById('output-area');
+const loading = document.getElementById('loading');
+const errorMessage = document.getElementById('error-message');
+
+// Update slider value display
+numImagesSlider.addEventListener('input', (e) => {
+    numImagesValue.textContent = e.target.value;
+});
+
+// Clear form
+clearBtn.addEventListener('click', () => {
+    imageForm.reset();
+    numImagesValue.textContent = '1';
+    outputArea.innerHTML = '<div class="placeholder"><i class="fas fa-image"></i><p>Your generated images will appear here</p></div>';
+    errorMessage.classList.add('hidden');
+});
+
+// Handle form submission
+imageForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const prompt = document.getElementById('prompt').value;
+    const numImages = document.getElementById('num-images').value;
+    
+    // Show loading
+    loading.classList.remove('hidden');
+    errorMessage.classList.add('hidden');
+    generateBtn.disabled = true;
+    outputArea.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prompt: prompt,
+                num_images: parseInt(numImages)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayImages(data.images);
+            showSuccess(data.message);
+        } else {
+            showError(data.error || 'Failed to generate images');
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    } finally {
+        loading.classList.add('hidden');
+        generateBtn.disabled = false;
+    }
+});
+
+function displayImages(images) {
+    outputArea.innerHTML = '';
+    
+    images.forEach((imagePath, index) => {
+        const imageCard = document.createElement('div');
+        imageCard.className = 'image-card';
+        
+        imageCard.innerHTML = `
+            <img src="/${imagePath}" alt="Generated Image ${index + 1}" loading="lazy">
+            <div class="image-actions">
+                <button class="btn-icon" onclick="downloadImage('/${imagePath}', 'image_${index + 1}.png')">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="btn-icon" onclick="shareImage('/${imagePath}')">
+                    <i class="fas fa-share"></i>
+                </button>
+            </div>
+        `;
+        
+        outputArea.appendChild(imageCard);
+    });
+}
+
+function downloadImage(url, filename) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function shareImage(url) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Generated Image',
+            url: url
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.origin + url);
+        showSuccess('Link copied to clipboard!');
+    }
+}
+
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
+    setTimeout(() => {
+        errorMessage.classList.add('hidden');
+    }, 5000);
+}
+
+function showSuccess(message) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-message';
+    successDiv.textContent = message;
+    document.querySelector('.generator-container').prepend(successDiv);
+    
+    setTimeout(() => {
+        successDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}
