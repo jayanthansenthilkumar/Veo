@@ -36,7 +36,7 @@ env.bak/
 venv.bak/
 
 # Flask stuff
-instance/
+# instance/
 .webassets-cache
 
 # Database
@@ -59,8 +59,8 @@ instance/
 Thumbs.db
 
 # Generated files
-uploads/
-outputs/
+# uploads/
+# outputs/
 *.log
 
 # Testing
